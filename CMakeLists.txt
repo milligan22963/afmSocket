@@ -21,6 +21,7 @@ set(LIB_FILES
     src/afmSocket.cpp
     src/afmClientSocket.cpp
     src/afmServerSocket.cpp
+    src/afmSocketFactory.cpp
 )
 
 set(SRC_FILES

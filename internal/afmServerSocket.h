@@ -10,6 +10,8 @@
 #include <atomic>
 #include <list>
 #include <thread>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include "afmSocket.h"
 #include "afmClientSocket.h"
