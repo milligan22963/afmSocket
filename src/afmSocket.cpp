@@ -16,8 +16,8 @@
 namespace afm {
     namespace communications {
         AfmSocket::AfmSocket()
+            : m_threadRunning(false)
         {
-            m_threadRunning = false;
         }
 
         AfmSocket::~AfmSocket()
