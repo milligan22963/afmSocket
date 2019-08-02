@@ -1,0 +1,33 @@
+{
+    "definitions": {},
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://www.afmsoftware.com/socketoptions.json",
+    "type": "object",
+    "title": "The primary server/client options",
+    "required": [
+        "url",
+        "port"
+    ],
+    "properties": {
+        "url": {
+            "$id": "#/properties/url",
+            "type": "string",
+            "title": "The Url to use",
+            "default": "",
+            "examples": [
+                "www.afmsoftware.com",
+                "localhost"
+            ],
+            "pattern": "^(.*)$"
+        },
+        "port": {
+            "$id": "#/properties/port",
+            "type": "integer",
+            "title": "The Port definition",
+            "default": 9001,
+            "examples": [
+            ]
+        }
+    }
+}
+   
