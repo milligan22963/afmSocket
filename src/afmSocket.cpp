@@ -4,6 +4,7 @@
  * Copyright: 2019 AFM Software
  */
 
+#include <errno.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -17,6 +18,7 @@ namespace afm {
     namespace communications {
         AfmSocket::AfmSocket()
             : m_threadRunning(false)
+            , m_socketConnected(false)
         {
         }
 
@@ -46,6 +48,10 @@ namespace afm {
             if (m_threadRunning == true) {
                 m_threadRunning = false;
                 m_processingThread.join();
+            }
+
+            for (auto listener : m_socketListeners) {
+                listener->onDisconnected();
             }
             m_socketListeners.clear();
 
@@ -80,7 +86,12 @@ namespace afm {
         {
             bool success = true;
 
-            if (::write(m_socketHandle, data.data(), data.size()) <= 0) {
+            if (::write(m_socketHandle, data.data(), data.size()) > 0) {
+                for (auto listener : m_socketListeners) {
+                    listener->onDataWritten(data);
+                }
+            } else {
+                socketFailure();
                 success = false;
             }
 
@@ -127,6 +138,27 @@ namespace afm {
             return readWait(milliseconds);
         }
 
+        bool AfmSocket::connect()
+        {
+            bool success = false;
+            struct sockaddr_in hostAddress;
+
+            hostAddress.sin_family = AF_INET;
+            hostAddress.sin_port = htons(m_port);
+
+            if (inet_pton(AF_INET, getUrlAddress().c_str(), &hostAddress.sin_addr) > 0) {
+                if (::connect(m_socketHandle, (struct sockaddr *)&hostAddress, sizeof(hostAddress)) >= 0) {
+                    m_socketConnected = true;
+                    success = true;
+                    for (auto listener : m_socketListeners) {
+                        listener->onConnected();
+                    }
+                }
+            }
+
+            return success;
+        }
+
         std::string AfmSocket::getUrlAddress()
         {
             std::string hostAddress;
@@ -146,9 +178,9 @@ namespace afm {
             return hostAddress;
         }
 
-        size_t AfmSocket::read(SocketBuffer &buffer)
+        ssize_t AfmSocket::read(SocketBuffer &buffer)
         {
-            size_t bytesRead = 0;
+            ssize_t bytesRead = 0;
 
             buffer.clear();
             
@@ -157,28 +189,50 @@ namespace afm {
             if (bytesRead > 0) {
                 buffer.reserve(bytesRead);
                 std::copy(data_buffer, data_buffer + bytesRead, std::back_inserter(buffer));
+            } else if (bytesRead == -1) {
+                socketFailure();
             }
             return bytesRead;
         }
 
-        size_t AfmSocket::readWait(SocketBuffer &buffer, uint32_t milliseconds)
+        ssize_t AfmSocket::readWait(SocketBuffer &buffer, uint32_t milliseconds)
         {
-            size_t bytesRead = 0;
+            ssize_t bytesRead = 0;
             time_t seconds = milliseconds / 1000;
             suseconds_t microseconds = (milliseconds - (seconds * 1000)) * 1000;
 
             struct timeval tv = {seconds, microseconds};
             fd_set readDescriptorSet;
+            fd_set exceptionDescriptorSet;
             
             FD_ZERO(&readDescriptorSet);
-            FD_SET(m_socketHandle, &readDescriptorSet);
+            FD_ZERO(&exceptionDescriptorSet);
 
-            if (select(m_socketHandle + 1, &readDescriptorSet, nullptr, nullptr, &tv) != -1) {
+            FD_SET(m_socketHandle, &readDescriptorSet);
+            FD_SET(m_socketHandle, &exceptionDescriptorSet);
+
+            if (select(m_socketHandle + 1, &readDescriptorSet, nullptr, &exceptionDescriptorSet, &tv) != -1) {
                 if (FD_ISSET(m_socketHandle, &readDescriptorSet)) {
                     bytesRead = read(buffer);
+                } else if (FD_ISSET(m_socketHandle, &exceptionDescriptorSet)) {
+                    socketFailure();
                 }
+            } else {
+                socketFailure();
             }
             return bytesRead;
+        }
+
+        void AfmSocket::socketFailure()
+        {
+            m_socketConnected = false;
+
+            // may need to do this prior to this call
+            m_lastError = errno;
+
+            for (auto listener : m_socketListeners) {
+                listener->onError(m_lastError);
+            }
         }
 
         void AfmSocket::read_processing()
@@ -186,10 +240,17 @@ namespace afm {
             SocketBuffer incomingData;
 
             while (m_threadRunning == true) {
-                if (readWait(incomingData, 1000) > 0) {
-                    for (auto listener : m_socketListeners) {
-                        listener->onDataReceived(incomingData);
+                if (m_socketConnected == true) {
+                    if (readWait(incomingData, 1000) > 0) {
+                        for (auto listener : m_socketListeners) {
+                            listener->onDataReceived(incomingData);
+                        }
                     }
+                } else {
+                    for (int count = 0; count < sm_connectionDelay; count++) {
+                        sleep(1); // so we don't hammer the connection
+                    }
+                    connect();
                 }
             }
         }

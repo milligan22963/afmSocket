@@ -35,6 +35,7 @@ namespace afm {
         virtual SocketBuffer transferWait(const SocketBuffer &data, uint32_t milliseconds) override;
 
     protected:
+        bool connect();
         int32_t getSocketHandle() const { return m_socketHandle; }
         void setSocketHandle(int32_t socketHandle) { m_socketHandle = socketHandle; }
         uint16_t getPort() const { return m_port; }
@@ -43,15 +44,19 @@ namespace afm {
         const ISocketListeners &getSocketListeners() const { return m_socketListeners; }
 
     private:
-        size_t read(SocketBuffer &buffer);
-        size_t readWait(SocketBuffer &buffer, uint32_t milliseconds);
+        ssize_t read(SocketBuffer &buffer);
+        ssize_t readWait(SocketBuffer &buffer, uint32_t milliseconds);
+        void socketFailure();
         void read_processing();
+        static const uint8_t sm_connectionDelay = 15;
 
     private:
       std::atomic<bool> m_threadRunning;
+      std::atomic<bool> m_socketConnected;
       int32_t           m_socketHandle = sc_closedSocket;
       std::string       m_url = "localhost";
       uint16_t          m_port = 9001;
+      int               m_lastError = 0;
       ISocketListeners  m_socketListeners;
       std::thread       m_processingThread;
     };

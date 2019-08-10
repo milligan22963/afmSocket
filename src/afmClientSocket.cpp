@@ -31,16 +31,7 @@ namespace afm {
             bool success = false;
 
             if (AfmSocket::initialize(options) == true) {
-                struct sockaddr_in hostAddress;
-
-                hostAddress.sin_family = AF_INET;
-                hostAddress.sin_port = htons(getPort());
-
-                if (inet_pton(AF_INET, getUrlAddress().c_str(), &hostAddress.sin_addr) > 0) {
-                    if (connect(getSocketHandle(), (struct sockaddr *)&hostAddress, sizeof(hostAddress)) >= 0) {
-                        success = true;
-                    }
-                }
+                success = connect();
 
                 if (success == false) {
                     shutdown();

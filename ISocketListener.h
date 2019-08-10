@@ -21,8 +21,11 @@ namespace afm {
             {
             }
 
+            virtual void onConnected() = 0;
             virtual void onDataReceived(const SocketBuffer &socketBuffer) = 0;
+            virtual void onDataWritten(const SocketBuffer &socketBuffer) = 0;
             virtual void onError(int socketError) = 0;
+            virtual void onDisconnected() = 0;
         };
 
         using ISocketListenerSPtr = std::shared_ptr<ISocketListener>; 
