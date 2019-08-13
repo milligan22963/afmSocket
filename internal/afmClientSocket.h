@@ -24,7 +24,11 @@ namespace afm {
          */
         AfmClientSocket(int32_t socketHandle);
 
-        virtual bool initialize(const SocketOptions &options) override;
+        protected: 
+          /**
+           * @copydoc AfmSocket::createProcessingThread
+           */
+          virtual std::thread createProcessingThread() override;
     };
 
     using AfmClientSocketSPtr = std::shared_ptr<AfmClientSocket>; 

@@ -15,7 +15,7 @@
 
 namespace afm {
   namespace communications {
-    class AfmSocket : public IAfmSocket
+    class AfmSocket : public IAfmSocket, public std::enable_shared_from_this<AfmSocket>
     {
     public:
         AfmSocket();
@@ -42,12 +42,28 @@ namespace afm {
         std::string getUrl() const { return m_url; }
         std::string getUrlAddress();
         const ISocketListeners &getSocketListeners() const { return m_socketListeners; }
+        
+        template <typename Derived>
+        std::shared_ptr<Derived> shared_from_base()
+        {
+            return std::static_pointer_cast<Derived>(shared_from_this());
+        }
+
+        /**
+         * @brief creates a processing thread in the context of the derived class
+         */
+        virtual std::thread createProcessingThread();
+
+       /**
+         * @brief used to process incoming data
+         */
+        void read_processing();
 
     private:
         ssize_t read(SocketBuffer &buffer);
         ssize_t readWait(SocketBuffer &buffer, uint32_t milliseconds);
         void socketFailure();
-        void read_processing();
+
         static const uint8_t sm_connectionDelay = 15;
 
     private:

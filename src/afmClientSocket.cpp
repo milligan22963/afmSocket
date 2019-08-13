@@ -25,20 +25,9 @@ namespace afm {
             setSocketHandle(socketHandle); // already have a socket
         }
 
-
-        bool AfmClientSocket::initialize(const SocketOptions &options)
+        std::thread AfmClientSocket::createProcessingThread()
         {
-            bool success = false;
-
-            if (AfmSocket::initialize(options) == true) {
-                success = connect();
-
-                if (success == false) {
-                    shutdown();
-                }
-            }
-
-            return success;
+            return std::thread(&AfmClientSocket::read_processing, shared_from_base<AfmClientSocket>());
         }
     }
 }

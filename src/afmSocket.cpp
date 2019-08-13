@@ -4,6 +4,7 @@
  * Copyright: 2019 AFM Software
  */
 
+#include <iostream>
 #include <errno.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -34,6 +35,7 @@ namespace afm {
             if (extractValue(options, sc_socketURL, m_url) == true) {
                 if (extractValue(options, sc_socketPort, m_port) == true) {
                     m_socketHandle = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+                    std::cout << "Socket has been created.\n";
                     if (m_socketHandle != sc_closedSocket) {
                         success = true;
                     }
@@ -64,10 +66,9 @@ namespace afm {
         void AfmSocket::addListener(ISocketListenerSPtr pSocketListener)
         {
             m_socketListeners.push_back(pSocketListener);
-
             if (m_threadRunning == false) {
                 m_threadRunning = true;
-                m_processingThread = std::thread(&AfmSocket::read_processing, this);
+                m_processingThread = createProcessingThread();
             }
         }
 
@@ -85,7 +86,8 @@ namespace afm {
         bool AfmSocket::write(const SocketBuffer &data)
         {
             bool success = true;
-
+            std::cout << "Socket Handle: " << m_socketHandle << "\n";
+            std::cout << "Preparing to write: " << (int)data.size() << " bytes\n";
             if (::write(m_socketHandle, data.data(), data.size()) > 0) {
                 for (auto listener : m_socketListeners) {
                     listener->onDataWritten(data);
@@ -148,7 +150,6 @@ namespace afm {
 
             if (inet_pton(AF_INET, getUrlAddress().c_str(), &hostAddress.sin_addr) > 0) {
                 if (::connect(m_socketHandle, (struct sockaddr *)&hostAddress, sizeof(hostAddress)) >= 0) {
-                    m_socketConnected = true;
                     success = true;
                     for (auto listener : m_socketListeners) {
                         listener->onConnected();
@@ -176,6 +177,11 @@ namespace afm {
                 }
             }
             return hostAddress;
+        }
+
+        std::thread AfmSocket::createProcessingThread()
+        {
+            return std::thread(&AfmSocket::read_processing, shared_from_this());
         }
 
         ssize_t AfmSocket::read(SocketBuffer &buffer)
@@ -250,7 +256,7 @@ namespace afm {
                     for (int count = 0; count < sm_connectionDelay; count++) {
                         sleep(1); // so we don't hammer the connection
                     }
-                    connect();
+                    m_socketConnected = connect();
                 }
             }
         }
