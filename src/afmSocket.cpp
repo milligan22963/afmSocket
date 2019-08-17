@@ -253,10 +253,14 @@ namespace afm {
                         }
                     }
                 } else {
-                    for (int count = 0; count < sm_connectionDelay; count++) {
-                        sleep(1); // so we don't hammer the connection
-                    }
                     m_socketConnected = connect();
+
+                    // if it fails let it wait for a bit
+                    if (m_socketConnected == false) {
+                        for (int count = 0; count < sm_connectionDelay; count++) {
+                            sleep(1); // so we don't hammer the connection
+                        }
+                    }
                 }
             }
         }
